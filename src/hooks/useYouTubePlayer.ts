@@ -6,209 +6,163 @@ interface UseYouTubePlayerProps {
   isPlaying: boolean;
 }
 
-interface UseYouTubePlayerReturn {
-  player: YT.Player | null;
-  isReady: boolean;
-  currentTime: number;
-  duration: number;
-  volume: number;
-  isMuted: boolean;
-  setVolume: (volume: number) => void;
-  toggleMute: () => void;
-  seekTo: (seconds: number) => void;
-}
-
-export const useYouTubePlayer = ({ videoId, isPlaying }: UseYouTubePlayerProps): UseYouTubePlayerReturn => {
+export const useYouTubePlayer = ({ videoId, isPlaying }: UseYouTubePlayerProps) => {
   const [player, setPlayer] = useState<YT.Player | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolumeState] = useState(70);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  
-  const playerRef = useRef<YT.Player | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [volume, setVolumeState] = useState(100);
+  const [isMuted, setIsMuted] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  const playerElementId = 'youtube-player';
 
-  // Load YouTube API
+  // Initialize YouTube API
   useEffect(() => {
-    // Create container for YouTube player if it doesn't exist
-    if (!containerRef.current) {
-      containerRef.current = document.createElement('div');
-      containerRef.current.id = 'youtube-player-container';
-      containerRef.current.style.position = 'absolute';
-      containerRef.current.style.top = '-9999px';
-      containerRef.current.style.left = '-9999px';
-      document.body.appendChild(containerRef.current);
+    // Create player container if it doesn't exist
+    if (!document.getElementById(playerElementId)) {
+      const playerContainer = document.createElement('div');
+      playerContainer.id = playerElementId;
+      playerContainer.style.display = 'none';
+      document.body.appendChild(playerContainer);
     }
 
-    // Only load API if not already loaded
     if (!window.YT) {
+      // Load YouTube API if not already loaded
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
-      window.onYouTubeIframeAPIReady = () => {
-        console.log('YouTube API ready');
-        initializePlayer();
-      };
+      window.onYouTubeIframeAPIReady = initializePlayer;
     } else if (window.YT.Player) {
-      console.log('YouTube API already loaded');
+      // If API is already loaded, initialize player
       initializePlayer();
     }
 
     return () => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
+      if (player) {
+        player.destroy();
       }
       
       if (intervalRef.current) {
         window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      
-      if (containerRef.current) {
-        document.body.removeChild(containerRef.current);
-        containerRef.current = null;
-      }
     };
   }, []);
 
-  // Initialize YouTube player
   const initializePlayer = () => {
-    if (!containerRef.current || !window.YT || !window.YT.Player) return;
-    
-    console.log('Initializing YouTube player');
-    
-    playerRef.current = new window.YT.Player(containerRef.current.id, {
-      height: '360',
-      width: '640',
+    console.info('Initializing YouTube player');
+    const newPlayer = new window.YT.Player(playerElementId, {
+      height: '0',
+      width: '0',
+      videoId: videoId || undefined,
       playerVars: {
         autoplay: 0,
         controls: 0,
+        disablekb: 1,
         enablejsapi: 1,
-        origin: window.location.origin,
+        modestbranding: 1,
         playsinline: 1,
+        rel: 0,
       },
       events: {
-        onReady: (event) => {
-          console.log('YouTube player ready');
-          setPlayer(event.target);
-          setIsReady(true);
-          event.target.setVolume(volume);
-          
-          // Start tracking player time
-          startTimeTracking();
-        },
-        onStateChange: (event) => {
-          if (event.data === window.YT.PlayerState.PLAYING) {
-            startTimeTracking();
-          } else if (event.data === window.YT.PlayerState.PAUSED ||
-                    event.data === window.YT.PlayerState.ENDED ||
-                    event.data === window.YT.PlayerState.UNSTARTED) {
-            stopTimeTracking();
-          }
-        },
-        onError: (event) => {
-          console.error('YouTube player error:', event.data);
-        },
+        onReady: onPlayerReady,
+        onStateChange: onPlayerStateChange,
       },
     });
+    
+    setPlayer(newPlayer);
   };
 
-  // Load video when videoId changes
-  useEffect(() => {
-    if (!isReady || !playerRef.current || !videoId) return;
-    
-    console.log('Loading video:', videoId);
-    playerRef.current.loadVideoById(videoId);
-    
-    // Get video duration after a short delay to ensure it's available
-    setTimeout(() => {
-      if (playerRef.current) {
-        const newDuration = playerRef.current.getDuration();
-        setDuration(newDuration > 0 ? newDuration : 0);
+  const onPlayerReady = (event: { target: YT.Player }) => {
+    console.info('YouTube player ready');
+    setIsReady(true);
+    setVolumeState(event.target.getVolume());
+    setIsMuted(event.target.isMuted());
+  };
+
+  const onPlayerStateChange = (event: { target: YT.Player; data: number }) => {
+    if (event.data === window.YT.PlayerState.PLAYING) {
+      setDuration(event.target.getDuration());
+      
+      // Start tracking current time
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
       }
-    }, 1000);
-    
-  }, [videoId, isReady]);
+      
+      intervalRef.current = window.setInterval(() => {
+        setCurrentTime(event.target.getCurrentTime());
+      }, 1000);
+    } else if (event.data === window.YT.PlayerState.PAUSED || 
+              event.data === window.YT.PlayerState.ENDED) {
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+  };
+
+  // Handle video ID changes
+  useEffect(() => {
+    if (isReady && player && videoId) {
+      player.loadVideoById(videoId);
+      if (!isPlaying) {
+        player.pauseVideo();
+      }
+    }
+  }, [isReady, videoId, player]);
 
   // Handle play/pause
   useEffect(() => {
-    if (!isReady || !playerRef.current || !videoId) return;
-    
-    if (isPlaying) {
-      playerRef.current.playVideo();
-    } else {
-      playerRef.current.pauseVideo();
-    }
-  }, [isPlaying, isReady, videoId]);
-
-  // Track player time
-  const startTimeTracking = () => {
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current);
-    }
-    
-    intervalRef.current = window.setInterval(() => {
-      if (playerRef.current) {
-        setCurrentTime(playerRef.current.getCurrentTime());
-        
-        // Update duration if it wasn't available earlier
-        if (duration === 0) {
-          const newDuration = playerRef.current.getDuration();
-          if (newDuration > 0) {
-            setDuration(newDuration);
-          }
-        }
-      }
-    }, 500);
-  };
-
-  const stopTimeTracking = () => {
-    if (intervalRef.current) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  };
-
-  // Set volume
-  const setVolume = (newVolume: number) => {
-    setVolumeState(newVolume);
-    if (playerRef.current) {
-      playerRef.current.setVolume(newVolume);
-    }
-  };
-
-  // Toggle mute
-  const toggleMute = () => {
-    const newMuteState = !isMuted;
-    setIsMuted(newMuteState);
-    if (playerRef.current) {
-      if (newMuteState) {
-        playerRef.current.mute();
+    if (isReady && player && videoId) {
+      if (isPlaying) {
+        player.playVideo();
       } else {
-        playerRef.current.unMute();
+        player.pauseVideo();
+      }
+    }
+  }, [isReady, isPlaying, player, videoId]);
+
+  const seekTo = (seconds: number) => {
+    if (player && isReady) {
+      player.seekTo(seconds, true);
+    }
+  };
+
+  const setVolume = (newVolume: number) => {
+    if (player && isReady) {
+      player.setVolume(newVolume);
+      setVolumeState(newVolume);
+      
+      if (newVolume === 0) {
+        player.mute();
+        setIsMuted(true);
+      } else if (isMuted) {
+        player.unMute();
+        setIsMuted(false);
       }
     }
   };
 
-  // Seek to time
-  const seekTo = (seconds: number) => {
-    if (playerRef.current) {
-      playerRef.current.seekTo(seconds, true);
+  const toggleMute = () => {
+    if (player && isReady) {
+      if (isMuted) {
+        player.unMute();
+        setIsMuted(false);
+      } else {
+        player.mute();
+        setIsMuted(true);
+      }
     }
   };
 
   return {
-    player: player,
-    isReady,
     currentTime,
     duration,
     volume,
     isMuted,
+    isReady,
     setVolume,
     toggleMute,
     seekTo,

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { usePlayerContext } from '@/context/PlayerContext';
 import Logo from '@/components/Logo';
 import SearchBar from '@/components/SearchBar';
 import HistoryItem from '@/components/HistoryItem';
@@ -9,92 +10,13 @@ import { toast } from 'sonner';
 import { LogOut, Trash } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-// Mock data for history
-const mockHistory = [
-  { 
-    id: '1',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:49',
-    songs: [
-      { id: '1a', title: 'Happy Upbeat Pop', artist: 'UniqueSound' },
-      { id: '1b', title: 'Summer Vibes', artist: 'HappyTunes' },
-    ]
-  },
-  { 
-    id: '2',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:49',
-    songs: [
-      { id: '2a', title: 'Sunny Day', artist: 'MoodBoost' },
-    ]
-  },
-  { 
-    id: '3',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:48',
-    songs: [
-      { id: '3a', title: 'Morning Energy', artist: 'DailyBeats' },
-      { id: '3b', title: 'Positive Thinking', artist: 'MindfulMusic' },
-    ]
-  },
-  { 
-    id: '4',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:48',
-    songs: [
-      { id: '4a', title: 'Uplifting Melody', artist: 'SpiritSound' },
-    ]
-  },
-  { 
-    id: '5',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:48',
-    songs: [
-      { id: '5a', title: 'Joyful Morning', artist: 'DawnMusic' },
-    ]
-  },
-  { 
-    id: '6',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:48',
-    songs: [
-      { id: '6a', title: 'Cheerful Day', artist: 'SunnyBeats' },
-    ]
-  },
-  { 
-    id: '7',
-    mood: 'Happy', 
-    date: '10/03/2025', 
-    time: '19:46',
-    songs: [
-      { id: '7a', title: 'Feel Good', artist: 'PositiveVibes' },
-    ]
-  },
-  { 
-    id: '8',
-    mood: 'Sad', 
-    date: '10/03/2025', 
-    time: '19:46',
-    songs: [
-      { id: '8a', title: 'Melancholy Memories', artist: 'DeepEmotions' },
-    ]
-  },
-];
-
 const Dashboard = () => {
   const { user, logout } = useAuth();
+  const { history, clearHistory } = usePlayerContext();
   const navigate = useNavigate();
-  const [history, setHistory] = useState(mockHistory);
   
   const handleClearHistory = () => {
-    toast.success('History cleared successfully');
-    setHistory([]);
+    clearHistory();
   };
   
   const handleLogout = () => {

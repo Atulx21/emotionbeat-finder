@@ -1,19 +1,4 @@
 
-interface YTConfig {
-  host: string;
-  Player: {
-    new (elementId: string, options: YTPlayerOptions): YT.Player;
-  };
-  PlayerState: {
-    UNSTARTED: number;
-    ENDED: number;
-    PLAYING: number;
-    PAUSED: number;
-    BUFFERING: number;
-    CUED: number;
-  };
-}
-
 declare namespace YT {
   export interface PlayerOptions {
     width?: number | string;
@@ -74,9 +59,28 @@ declare namespace YT {
     getOption(option: string): any;
     destroy(): void;
   }
+
+  export class PlayerState {
+    static readonly UNSTARTED: number;
+    static readonly ENDED: number;
+    static readonly PLAYING: number;
+    static readonly PAUSED: number;
+    static readonly BUFFERING: number;
+    static readonly CUED: number;
+  }
 }
 
 interface Window {
-  YT: YTConfig;
+  YT: {
+    Player: new (elementId: string, options: YT.PlayerOptions) => YT.Player;
+    PlayerState: {
+      UNSTARTED: number;
+      ENDED: number;
+      PLAYING: number;
+      PAUSED: number;
+      BUFFERING: number;
+      CUED: number;
+    };
+  };
   onYouTubeIframeAPIReady: () => void;
 }

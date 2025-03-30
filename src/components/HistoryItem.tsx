@@ -1,21 +1,26 @@
 
 import { useState } from 'react';
-import { Calendar, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, Clock, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { usePlayerContext } from '@/context/PlayerContext';
+
+interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  thumbnail: string;
+}
 
 interface HistoryItemProps {
   mood: string;
   date: string;
   time: string;
-  songs?: Array<{
-    id: string;
-    title: string;
-    artist: string;
-  }>;
+  songs: Song[];
 }
 
 const HistoryItem = ({ mood, date, time, songs = [] }: HistoryItemProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { playSong } = usePlayerContext();
   
   const getMoodColor = () => {
     switch(mood.toLowerCase()) {
@@ -28,6 +33,10 @@ const HistoryItem = ({ mood, date, time, songs = [] }: HistoryItemProps) => {
       case 'night': return 'bg-night text-white';
       default: return 'bg-discover text-white';
     }
+  };
+  
+  const handlePlaySong = (song: Song) => {
+    playSong(song.id, song.title, song.artist, song.thumbnail, mood);
   };
   
   return (
@@ -67,9 +76,20 @@ const HistoryItem = ({ mood, date, time, songs = [] }: HistoryItemProps) => {
           className="mt-2 pl-4 border-l-2 border-white/10 ml-4"
         >
           {songs.map(song => (
-            <div key={song.id} className="py-2 px-4 hover:bg-white/5 rounded transition-colors">
-              <p className="text-sm font-medium">{song.title}</p>
-              <p className="text-xs text-muted-foreground">{song.artist}</p>
+            <div key={song.id} className="py-2 px-4 hover:bg-white/5 rounded transition-colors flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">{song.title}</p>
+                <p className="text-xs text-muted-foreground">{song.artist}</p>
+              </div>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePlaySong(song);
+                }}
+                className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <Play size={16} />
+              </button>
             </div>
           ))}
         </motion.div>
